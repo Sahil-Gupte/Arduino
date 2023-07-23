@@ -1,0 +1,47 @@
+#######################################
+# Syntax Coloring Map Escornabot-EXTlib
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+EscornabotEXT	KEYWORD1
+
+# EXTpad
+EXTpad	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+ready	KEYWORD2
+beep	KEYWORD2
+forward	KEYWORD2
+back	KEYWORD2
+left	KEYWORD2
+right	KEYWORD2
+arc	KEYWORD2
+wait	KEYWORD2
+
+# EXTpad
+scan	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+# EXTpad
+BUTTON_NONE	LITERAL1
+BUTTON_FORWARD	LITERAL1
+BUTTON_FORWARD_LONG	LITERAL1
+BUTTON_BACK	LITERAL1
+BUTTON_BACK_LONG	LITERAL1
+BUTTON_LEFT	LITERAL1
+BUTTON_LEFT_LONG	LITERAL1
+BUTTON_RIGHT	LITERAL1
+BUTTON_RIGHT_LONG	LITERAL1
+BUTTON_GO	LITERAL1
+BUTTON_GO_LONG	LITERAL1
+
