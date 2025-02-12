@@ -1,137 +1,100 @@
 //*********CAPSTONE*********
-//#include <ArduinoHttpClient.h>
-//#include <WiFi.h>
-//#include <DHT.h>
-//
-//#define DHTPIN 4        // DHT11 data pin
-//#define DHTTYPE DHT11   // Define DHT type
-//#define LDR_PIN 34      // LDR Analog Pin
-//#define MQ135_PIN 35    // MQ-135 Analog Pin
-//#define RED_LED 16      // Red LED pin
-//#define GREEN_LED 17    // Green LED pin
-//
-//const char* ssid = "Your_SSID";       // Replace with your WiFi SSID
-//const char* password = "Your_Password"; // Replace with your WiFi Password
-//const char* scriptURL = "YOUR_GOOGLE_SCRIPT_URL";
-//
-//DHT dht(DHTPIN, DHTTYPE);
-//
-//void setup() {
-//    Serial.begin(115200);
-//    dht.begin();
-//    pinMode(LDR_PIN, INPUT);
-//    pinMode(MQ135_PIN, INPUT);
-//    pinMode(RED_LED, OUTPUT);`
-//    pinMode(GREEN_LED, OUTPUT);
-//    WiFi.begin(ssid, password);
-//    while (WiFi.status() != WL_CONNECTED) {
-//        delay(1000);
-//        Serial.println("Connecting to WiFi...");
-//    }
-//    Serial.println("Connected to WiFi");
-//}
-//
-//void loop() {
-//    float temp = dht.readTemperature();
-//    float humidity = dht.readHumidity();
-//    int lightIntensity = analogRead(LDR_PIN);
-//    int airQuality = analogRead(MQ135_PIN);
-//
-//    if (temp > 30) {
-//        digitalWrite(RED_LED, HIGH);
-//        digitalWrite(GREEN_LED, LOW);
-//    } else {
-//        digitalWrite(RED_LED, LOW);
-//        digitalWrite(GREEN_LED, HIGH);
-//    }
-//
-//    sendDataToGoogleSheets(temp, humidity, lightIntensity, airQuality);
-//    delay(60000);  // Send data every 1 minute
-//}
-//
-//void sendDataToGoogleSheets(float temp, float humidity, int light, int airQuality) {
-//    if (WiFi.status() == WL_CONNECTED) {
-//        HttpClient http;
-//        String url = String(scriptURL) + "?temperature=" + temp + "&humidity=" + humidity + "&light=" + light + "&airQuality=" + airQuality;
-//        http.begin(url);
-//        int httpResponseCode = http.GET();
-//        if (httpResponseCode > 0) {
-//            Serial.println("Data sent successfully");
-//        } else {
-//            Serial.println("Error sending data");
-//        }
-//        http.end();
-//    } else {
-//        Serial.println("WiFi Disconnected");
-//    }
-//}
-
 #include <WiFi.h>
-#include <ArduinoHttpClient.h>
-#include "DHT.h"
+#include <WebServer.h>
+#include <DHT.h>
 
-#define DHTPIN 4        
-#define DHTTYPE DHT11   
-#define LDR_PIN 34      
-#define MQ135_PIN 35    
-#define RED_LED 16     
-#define GREEN_LED 17  
-
-const char* ssid = "Sahil's Iphone"; 
-const char* password = "1234567890"; 
-const char* server = "https://script.google.com/macros/s/AKfycbxrG67cw_05aeKx9zROHT54gWIUn7M8X-ZL3z9bhmOQPIOQcFeTqj-Q6Q5PEpXnPdJRtw/exec"; 
-const int port = 443; 
-const char* path = "/macros/s/AKfycbxrG67cw_05aeKx9zROHT54gWIUn7M8X-ZL3z9bhmOQPIOQcFeTqj-Q6Q5PEpXnPdJRtw/exec"; 
-
-WiFiClient wifi;
-HttpClient client = HttpClient(wifi, server, port);
+#define DHTPIN 4      
+#define DHTTYPE DHT11  
+#define MQ135PIN 35    
+#define LDRPIN 34      
+#define GREEN_LED 18   
+#define RED_LED 19
+#define BLUE_LED 5     
 DHT dht(DHTPIN, DHTTYPE);
+WebServer server(80);
+
+const char* ssid = "ERTS";
+const char* password = "balstre101";
+const char* ntpServer = "pool.ntp.org";  
+const long  gmtOffset_sec = 19800;  // GMT+5:30 (India)
+const int   daylightOffset_sec = 0; 
+
+String webPage = "<html>\
+<head><title>ESP32 Environment Monitor</title></head>\
+<body><h2>Content</h2>\
+<p>Temperature: <span id='temp'>...</span> °C</p>\
+<p>Humidity: <span id='hum'>...</span> %</p>\
+<p>AQI Level: <span id='aqi'>...</span></p>\
+<p>Light Intensity: <span id='ldr'>...</span></p>\
+<script>\
+setInterval(()=>{fetch('/data').then(res=>res.text()).then(data=>{\
+let [temp, hum, aqi, ldr] = data.split(',');\
+document.getElementById('temp').innerText = temp;\
+document.getElementById('hum').innerText = hum;\
+document.getElementById('aqi').innerText = aqi;\
+document.getElementById('ldr').innerText = ldr;\
+})}, 2000);\
+</script></body></html>";
+
+void handleRoot() {
+    server.send(200, "text/html", webPage);
+}
+
+void handleData() {
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    int aqiValue = analogRead(MQ135PIN); // Read MQ135
+    int ldrValue = analogRead(LDRPIN); // Read LDR
+
+    if (isnan(temperature) || isnan(humidity)) {
+        server.send(500, "text/plain", "Sensor error");
+        return;
+    }
+    if (temperature < 23) {
+        digitalWrite(GREEN_LED, HIGH);
+        digitalWrite(RED_LED, LOW);
+        digitalWrite(BLUE_LED, LOW);
+    } else {
+        digitalWrite(GREEN_LED, LOW);
+        digitalWrite(RED_LED, HIGH);
+        digitalWrite(BLUE_LED, LOW);
+    }
+
+    server.send(200, "text/plain", String(temperature) + "," + String(humidity) + "," + String(aqiValue) + "," + String(ldrValue));
+}
 
 void setup() {
     Serial.begin(115200);
-    dht.begin();
-    pinMode(LDR_PIN, INPUT);
-    pinMode(MQ135_PIN, INPUT);
-    pinMode(RED_LED, OUTPUT);
-    pinMode(GREEN_LED, OUTPUT);
     WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
         delay(1000);
-        Serial.println("Connecting to WiFi...");
     }
-    Serial.println("Connected to WiFi");
+    Serial.println("\nConnected! IP: " + WiFi.localIP().toString());
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    
+    dht.begin();
+    pinMode(GREEN_LED, OUTPUT);
+    pinMode(RED_LED, OUTPUT);
+    pinMode(BLUE_LED, OUTPUT);
+
+    server.on("/", handleRoot);
+    server.on("/data", handleData);
+    server.begin();
+    Serial.println("Web server started");
 }
 
+String getTimeStamp() {
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        return "Failed to obtain time";
+    }
+    
+    char timeStr[20];
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    return String(timeStr);
+}
 void loop() {
-    float temp = dht.readTemperature();
-    float humidity = dht.readHumidity();
-    int lightIntensity = analogRead(LDR_PIN);
-    int airQuality = analogRead(MQ135_PIN);
-
-    if (temp > 30) {
-        digitalWrite(RED_LED, HIGH);
-        digitalWrite(GREEN_LED, LOW);
-    } else {
-        digitalWrite(RED_LED, LOW);
-        digitalWrite(GREEN_LED, HIGH);
-    }
-
-    sendDataToGoogleSheets(temp, humidity, lightIntensity, airQuality);
-    delay(60000);  
-}
-
-void sendDataToGoogleSheets(float temp, float humidity, int light, int airQuality) {
-    if (WiFi.status() == WL_CONNECTED) {
-        String queryParams = "?temperature=" + String(temp) + "&humidity=" + String(humidity) + "&light=" + String(light) + "&airQuality=" + String(airQuality);
-        String requestURL = String(path) + queryParams;
-        client.get(requestURL);
-        int statusCode = client.responseStatusCode();
-        if (statusCode > 0) {
-            Serial.println("Data sent successfully");
-        } else {
-            Serial.println("Error sending data");
-        }
-    } else {
-        Serial.println("WiFi Disconnected");
-    }
+    server.handleClient();
 }
